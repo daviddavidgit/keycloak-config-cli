@@ -25,8 +25,10 @@ import de.adorsys.keycloak.config.provider.KeycloakProvider;
 import de.adorsys.keycloak.config.util.VersionUtil;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.ToStringConsumer;
+import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
@@ -52,7 +54,7 @@ abstract public class AbstractImportIT extends AbstractImportTest {
 
     static {
         KEYCLOAK_CONTAINER = new GenericContainer<>(DockerImageName.parse(KEYCLOAK_IMAGE + ":" + KEYCLOAK_VERSION + KEYCLOAK_TAG_SUFFIX))
-                .withExposedPorts(8080)
+                .withExposedPorts(8080, 8787)
                 .withEnv("KEYCLOAK_USER", "admin")
                 .withEnv("KEYCLOAK_PASSWORD", "admin123")
                 .withEnv("KEYCLOAK_LOGLEVEL", KEYCLOAK_LOG_LEVEL)
@@ -61,8 +63,11 @@ abstract public class AbstractImportIT extends AbstractImportTest {
                 .withEnv("KEYCLOAK_ADMIN", "admin")
                 .withEnv("KEYCLOAK_ADMIN_PASSWORD", "admin123")
                 .withEnv("QUARKUS_PROFILE", "dev")
+                .withEnv("DEBUG", "true")
+                .withEnv("DEBUG_PORT", "*:8787")
                 .withExtraHost("host.docker.internal", "host-gateway")
-                .waitingFor(Wait.forHttp("/"))
+                .waitingFor(new HttpWaitStrategy().forPort(8080).forPath("/")) // explicit port to target http endpoint
+                .withFileSystemBind("keycloak/extensions/target/extensions.jar","/opt/keycloak/providers/extensions.jar", BindMode.READ_ONLY)
                 .withStartupTimeout(Duration.ofSeconds(300));
 
         boolean isLegacyDistribution = KEYCLOAK_CONTAINER.getDockerImageName().contains("legacy");
